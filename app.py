@@ -4,14 +4,21 @@ import re
 import json
 import random
 import requests
+import gc
 from google import genai
 import edge_tts
 from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, vfx
+from supabase import create_client, Client
 
 app = Flask(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 FAL_KEY = os.getenv("FAL_KEY", "")
+
+# ตั้งค่าเชื่อมต่อ Supabase
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
 
 OUTPUT_DIR = "./static/outputs"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -32,7 +39,7 @@ def generate_gemini_script(product_title: str) -> dict:
     }}
     """
     response = client.models.generate_content(
-        model='gemini-3.8-flash',
+        model='gemini-2.5-flash',
         contents=prompt,
     )
     
@@ -88,29 +95,41 @@ def render_anti_shadowban_video(raw_video_path: str, audio_path: str, headline: 
     else:
         video = video.subclip(0, audio.duration)
 
-    video = video.fx(vfx.speedx, 1.02).resize(height=1920)
-    if video.w > 1080:
-        video = video.crop(x_center=video.w / 2, width=1080)
+    # ลดขนาดความละเอียดเหลือ 540x960 เพื่อประหยัด RAM บน Render Free Tier
+    video = video.fx(vfx.speedx, 1.02).resize(height=960)
+    if video.w > 540:
+        video = video.crop(x_center=video.w / 2, width=540)
 
-    crop_offset = random.randint(5, 12)
+    crop_offset = random.randint(3, 8)
     video = video.crop(
         x1=crop_offset, y1=crop_offset, 
         x2=video.w - crop_offset, y2=video.h - crop_offset
-    ).resize((1080, 1920))
+    ).resize((540, 960))
 
     txt_clip = TextClip(
-        headline, fontsize=52, color='yellow', bg_color='black',
-        font='Tahoma', method='caption', size=(950, None)
-    ).set_position(('center', 200)).set_duration(audio.duration)
+        headline, fontsize=28, color='yellow', bg_color='black',
+        font='Tahoma', method='caption', size=(480, None)
+    ).set_position(('center', 100)).set_duration(audio.duration)
 
     final_clip = CompositeVideoClip([video.set_audio(audio), txt_clip])
+    
+    # กำหนด threads=1 และ bitrate ต่ำลงเพื่อไม่ให้หน่วยความจำเต็ม
     final_clip.write_videofile(
-        output_path, fps=30, codec='libx264', audio_codec='aac', preset='ultrafast'
+        output_path, 
+        fps=24, 
+        codec='libx264', 
+        audio_codec='aac', 
+        preset='ultrafast',
+        threads=1,
+        bitrate="1500k"
     )
 
     audio.close()
     video.close()
     final_clip.close()
+    
+    # สั่งเคลียร์ RAM ทันทีหลังเรนเดอร์เสร็จ
+    gc.collect()
 
 @app.route("/")
 def index():
@@ -146,11 +165,25 @@ def generate():
         
         render_anti_shadowban_video(raw_video, "temp_voice.mp3", ai_data['headline'], output_path)
 
+        video_url_path = f"/static/outputs/{output_filename}"
+
+        # บันทึกข้อมูลลง Supabase
+        if supabase:
+            try:
+                supabase.table("video_histories").insert({
+                    "product_url": affiliate_url,
+                    "headline": ai_data['headline'],
+                    "script": ai_data['script'],
+                    "video_url": video_url_path
+                }).execute()
+            except Exception as db_err:
+                print(f"⚠️ Supabase Save Error: {db_err}")
+
         return jsonify({
             "success": True,
             "headline": ai_data['headline'],
             "script": ai_data['script'],
-            "video_url": f"/static/outputs/{output_filename}",
+            "video_url": video_url_path,
             "affiliate_url": affiliate_url
         })
 
