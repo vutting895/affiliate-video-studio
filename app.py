@@ -6,6 +6,7 @@ import random
 import requests
 import gc
 from google import genai
+from google.genai import types
 import edge_tts
 from moviepy.editor import VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip, vfx
 from supabase import create_client, Client
@@ -32,24 +33,32 @@ def generate_gemini_script(product_title: str) -> dict:
     1. เขียนพาดหัวตัวโตตื่นเต้น สั้นๆ สำหรับวางบนคลิป (ไม่เกิน 6 คำ)
     2. เขียนบทพากย์ป้ายยาภาษาไทย ความยาว 15 วินาที กระชับ น่าซื้อ
 
-    ตอบกลับเป็นรูปแบบ JSON เท่านั้น โดยไม่ต้องมีข้อความอื่น:
+    ตอบกลับเป็นรูปแบบ JSON object เท่านั้น โดยมีโครงสร้างดังนี้และห้ามมีข้อความอื่นนอกเหนือจาก JSON:
     {{
         "headline": "...",
         "script": "..."
     }}
     """
-    response = client.models.generate_content(
-        model='gemini-3.8-flash',
-        contents=prompt,
-    )
     
-    text_res = response.text.strip()
-    if text_res.startswith("```json"):
-        text_res = text_res[7:-3].strip()
-    elif text_res.startswith("```"):
-        text_res = text_res[3:-3].strip()
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.7,
+            ),
+        )
         
-    return json.loads(text_res)
+        text_res = response.text.strip()
+        return json.loads(text_res)
+        
+    except Exception as e:
+        print(f"⚠️ [Gemini Error] {e}")
+        return {
+            "headline": "ของดีต้องมีติดบ้าน!",
+            "script": "สินค้านี้คุ้มค่ามากๆ รีบกดสั่งซื้อก่อนสินค้าหมดนะครับ"
+        }
 
 async def generate_voiceover(text: str, output_path: str):
     communicate = edge_tts.Communicate(text, "th-TH-PremwadeeNeural", rate="+8%")
@@ -128,7 +137,6 @@ def render_anti_shadowban_video(raw_video_path: str, audio_path: str, headline: 
     video.close()
     final_clip.close()
     
-    # สั่งเคลียร์ RAM ทันทีหลังเรนเดอร์เสร็จ
     gc.collect()
 
 @app.route("/")
