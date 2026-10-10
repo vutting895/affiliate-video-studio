@@ -1,1 +1,87 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopee & Lazada Affiliate Video Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+        <h1 class="text-2xl font-bold text-center mb-2 bg-gradient-to-r from-pink-500 to-violet-500 bg-clip-text text-transparent">
+            🚀 Affiliate Video Studio
+        </h1>
+        <p class="text-xs text-slate-400 text-center mb-6">วางลิงก์สินค้า Shopee / Lazada เพื่อสร้างคลิปป้ายยาอัตโนมัติ</p>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium mb-1 text-slate-300">ลิงก์สินค้าหรือข้อความแชร์</label>
+                <textarea id="productUrl" rows="3" placeholder="วางลิงก์ที่นี่ เช่น https://shope.ee/..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm focus:outline-none focus:border-violet-500 text-slate-100 resize-none"></textarea>
+            </div>
+            <button onclick="generateVideo()" id="submitBtn" class="w-full bg-gradient-to-r from-pink-600 to-violet-600 hover:from-pink-500 hover:to-violet-500 font-medium py-3 rounded-xl transition duration-200 shadow-lg cursor-pointer">
+                ✨ สร้างวิดีโอ (AI Studio)
+            </button>
+        </div>
+
+        <div id="loadingBox" class="hidden mt-6 text-center space-y-3">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-violet-500 border-t-transparent"></div>
+            <p class="text-sm text-violet-400 font-medium">กำลังให้ Gemini และ AI สร้างวิดีโอ...</p>
+        </div>
+
+        <div id="resultBox" class="hidden mt-6 space-y-4 border-t border-slate-800 pt-4">
+            <h2 class="text-sm font-semibold text-emerald-400">🎉 สร้างวิดีโอสำเร็จแล้ว!</h2>
+            <video id="outputVideo" controls class="w-full rounded-xl border border-slate-700 shadow-md aspect-[9/16] bg-black"></video>
+            <div class="bg-slate-950 p-3 rounded-xl text-xs space-y-2 border border-slate-800">
+                <p><strong>📌 พาดหัว:</strong> <span id="resHeadline" class="text-yellow-400"></span></p>
+                <p><strong>📝 สคริปต์:</strong> <span id="resScript" class="text-slate-300"></span></p>
+            </div>
+            <a id="downloadBtn" href="#" download class="block text-center bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl text-sm transition">
+                📥 ดาวน์โหลดวิดีโอ (.mp4)
+            </a>
+        </div>
+    </div>
+
+    <script>
+        async function generateVideo() {
+            const urlInput = document.getElementById('productUrl').value.trim();
+            if (!urlInput) { alert('กรุณากรอกลิงก์สินค้าก่อนครับ'); return; }
+
+            const submitBtn = document.getElementById('submitBtn');
+            const loadingBox = document.getElementById('loadingBox');
+            const resultBox = document.getElementById('resultBox');
+
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            loadingBox.classList.remove('hidden');
+            resultBox.classList.add('hidden');
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: urlInput })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('resHeadline').innerText = data.headline;
+                    document.getElementById('resScript').innerText = data.script;
+                    document.getElementById('outputVideo').src = data.video_url;
+                    document.getElementById('downloadBtn').href = data.video_url;
+                    loadingBox.classList.add('hidden');
+                    resultBox.classList.remove('hidden');
+                } else {
+                    alert('เกิดข้อผิดพลาด: ' + data.error);
+                    loadingBox.classList.add('hidden');
+                }
+            } catch (err) {
+                alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
+                loadingBox.classList.add('hidden');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+    </script>
+</body>
+</html>
 
