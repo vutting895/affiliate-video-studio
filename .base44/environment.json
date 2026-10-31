@@ -1,0 +1,27 @@
+{
+  "previewPort": 3000,
+  "healthPath": "/",
+  "startCommand": "docker compose -f docker-compose.base44.yml up -d",
+  "secrets": [
+    {
+      "name": "GEMINI_API_KEY",
+      "description": "Google AI Studio API key used by google-genai to write the headline and Thai voiceover script (model gemini-2.5-flash). Without it the app falls back to a canned Thai script. Get it at https://aistudio.google.com/apikey",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "FAL_KEY",
+      "description": "fal.ai API key used for image-to-video generation (fal-ai/minimax/video-01). Without it /generate cannot produce a source clip unless one is placed in raw_footages/. Get it at https://fal.ai/dashboard/keys",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "SUPABASE_URL",
+      "description": "Optional. Supabase project URL; when set together with SUPABASE_KEY every generated video is logged to the video_histories table.",
+      "requiredAtBoot": false
+    },
+    {
+      "name": "SUPABASE_KEY",
+      "description": "Optional. Supabase service/anon key paired with SUPABASE_URL for the video_histories log.",
+      "requiredAtBoot": false
+    }
+  ]
+}

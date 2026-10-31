@@ -1,0 +1,38 @@
+# Base44 sandbox run configuration for this Flask app.
+# Development-oriented: the repo is bind-mounted and served by Flask's reloader,
+# so edits appear without rebuilding the image.
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.base44
+    working_dir: /app
+    command:
+      - sh
+      - -ec
+      - |
+        pip install -q --no-cache-dir -r requirements.txt
+        exec python app.py
+    ports:
+      - "3000:5000"
+    volumes:
+      - ./:/app
+    environment:
+      - BASE44_PREVIEW_MODE
+      - PORT=5000
+      - PYTHONUNBUFFERED=1
+      - FLASK_DEBUG=1
+    env_file:
+      - ./.env.base44-defaults
+      - /run/base44/app.env
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5000/ >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    restart: on-failure
+    labels:
+      base44.project: "Affiliate Video Studio"
+      base44.kind: "web"
+      base44.port: "3000"

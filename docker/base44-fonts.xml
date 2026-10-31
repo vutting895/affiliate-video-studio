@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE typemap [
+<!ELEMENT typemap (type)+>
+<!ELEMENT type (#PCDATA)>
+<!ELEMENT include (#PCDATA)>
+<!ATTLIST type name CDATA #REQUIRED>
+<!ATTLIST type fullname CDATA #IMPLIED>
+<!ATTLIST type family CDATA #IMPLIED>
+<!ATTLIST type style CDATA #IMPLIED>
+<!ATTLIST type weight CDATA #IMPLIED>
+<!ATTLIST type stretch CDATA #IMPLIED>
+<!ATTLIST type glyphs CDATA #REQUIRED>
+]>
+<!-- app.py's TextClip asks for font="Tahoma", which Debian does not ship.
+     Point ImageMagick at the Thai/Latin capable TLWG "Norasi" face instead. -->
+<typemap>
+  <type name="Tahoma" fullname="Tahoma" family="Tahoma" style="normal" weight="400" stretch="normal" glyphs="/usr/share/fonts/truetype/tlwg/Norasi.ttf"/>
+</typemap>

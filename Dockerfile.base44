@@ -1,0 +1,40 @@
+# Base44 sandbox development image.
+# Only system packages + Python dependencies live in the image; the application
+# source is bind-mounted at run time so edits are picked up without a rebuild.
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ffmpeg \
+        imagemagick \
+        fonts-dejavu-core \
+        fonts-thai-tlwg \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# moviepy's TextClip hands its caption to ImageMagick via an "@file" argument,
+# which Debian's default ImageMagick security policy rejects
+# ("operation not allowed by the security policy"). Allow that one pattern so
+# the caption clip can be rendered.
+RUN set -eux; \
+    for f in /etc/ImageMagick-*/policy.xml; do \
+        sed -i 's|^\( *\)<policy domain="path" rights="none" pattern="@\*"/>|\1<!-- disabled for moviepy TextClip -->|' "$f"; \
+    done; \
+    ! grep -rq 'pattern="@\*"' /etc/ImageMagick-*/policy.xml
+
+# app.py renders headlines with font="Tahoma", which does not ship with Debian.
+# Register "Tahoma" for ImageMagick and alias it in fontconfig to the Thai/Latin
+# capable TLWG "Norasi" face so Thai headlines render.
+COPY docker/base44-tahoma-alias.conf /etc/fonts/conf.d/99-base44-tahoma-alias.conf
+COPY docker/base44-fonts.xml /etc/ImageMagick-7/type-base44.xml
+RUN set -eux; \
+    grep -q 'type-base44.xml' /etc/ImageMagick-7/type.xml \
+      || sed -i 's|</typemap>|  <include file="type-base44.xml"/>\n</typemap>|' /etc/ImageMagick-7/type.xml; \
+    grep -q 'type-base44.xml' /etc/ImageMagick-7/type.xml
+
+WORKDIR /app
+
+# Manifests only — never the application source.
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+EXPOSE 5000

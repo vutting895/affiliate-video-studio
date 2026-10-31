@@ -1,0 +1,8 @@
+# Runtime artefacts created by app.py
+__pycache__/
+*.pyc
+static/outputs/
+raw_footages/
+temp_voice.mp3
+temp_render_raw.mp4
+.env
